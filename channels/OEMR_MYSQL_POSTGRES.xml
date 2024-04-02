@@ -1,0 +1,390 @@
+<channel version="4.5.0">
+  <id>acb8d621-c52e-46ab-aec7-f5ebfc1e4e3e</id>
+  <nextMetaDataId>2</nextMetaDataId>
+  <name>OEMR_MYSQL_POSTGRES</name>
+  <description></description>
+  <revision>49</revision>
+  <sourceConnector version="4.5.0">
+    <metaDataId>0</metaDataId>
+    <name>sourceConnector</name>
+    <properties class="com.mirth.connect.connectors.js.JavaScriptReceiverProperties" version="4.5.0">
+      <pluginProperties/>
+      <pollConnectorProperties version="4.5.0">
+        <pollingType>INTERVAL</pollingType>
+        <pollOnStart>true</pollOnStart>
+        <pollingFrequency>20000</pollingFrequency>
+        <pollingHour>0</pollingHour>
+        <pollingMinute>0</pollingMinute>
+        <cronJobs/>
+        <pollConnectorPropertiesAdvanced>
+          <weekly>true</weekly>
+          <inactiveDays>
+            <boolean>false</boolean>
+            <boolean>false</boolean>
+            <boolean>false</boolean>
+            <boolean>false</boolean>
+            <boolean>false</boolean>
+            <boolean>false</boolean>
+            <boolean>false</boolean>
+            <boolean>false</boolean>
+          </inactiveDays>
+          <dayOfMonth>1</dayOfMonth>
+          <allDay>true</allDay>
+          <startingHour>8</startingHour>
+          <startingMinute>0</startingMinute>
+          <endingHour>17</endingHour>
+          <endingMinute>0</endingMinute>
+        </pollConnectorPropertiesAdvanced>
+      </pollConnectorProperties>
+      <sourceConnectorProperties version="4.5.0">
+        <responseVariable>d1</responseVariable>
+        <respondAfterProcessing>true</respondAfterProcessing>
+        <processBatch>false</processBatch>
+        <firstResponse>false</firstResponse>
+        <processingThreads>1</processingThreads>
+        <resourceIds class="linked-hash-map">
+          <entry>
+            <string>Default Resource</string>
+            <string>[Default Resource]</string>
+          </entry>
+        </resourceIds>
+        <queueBufferSize>1000</queueBufferSize>
+      </sourceConnectorProperties>
+      <script>// Import required Java packages
+importPackage(Packages.java.sql);
+importPackage(Packages.java.lang);
+
+// Define database connection parameters
+var driver = &apos;com.mysql.jdbc.Driver&apos;;
+var url = &apos;jdbc:mysql://192.168.1.5:8320/openemr&apos;;
+var username = &apos;openemr&apos;;
+var password = &apos;openemr&apos;;
+
+// Define SQL query to retrieve data
+var sqlQuery = &apos;SELECT * FROM patient_data WHERE update_flag=0 or update_flag=2&apos;;
+
+// Initialize variables for database connection and result set
+var connection = null;
+var resultSet = null;
+var statement = null;
+try {
+    // Load MySQL JDBC driver
+    Class.forName(driver);
+
+    // Establish database connection
+    connection = DriverManager.getConnection(url, username, password);
+
+    // Create statement object
+    statement = connection.createStatement();
+
+    // Execute SQL query
+    resultSet = statement.executeQuery(sqlQuery);
+//logger.info(&quot;stment : &quot; + resultSet);
+//var xml= new XML();
+//xml=resultSet;
+var updateStatements =[];
+ var xmlString = &apos;&lt;data&gt;&apos;;
+	while(resultSet.next()) {
+
+   xmlString += &apos;&lt;row&gt;&apos;;
+
+    // Iterate over each column in the result set
+    for (var i = 1; i &lt;= resultSet.getMetaData().getColumnCount(); i++) {
+    	  if(resultSet.getMetaData().getColumnName(i)!=&quot;uuid&quot;)
+    	  {
+    	  	
+        var columnName = resultSet.getMetaData().getColumnName(i);
+        var columnValue = resultSet.getString(columnName);
+        // Append column as XML element
+        xmlString += &apos;&lt;&apos; + columnName + &apos;&gt;&apos; + columnValue + &apos;&lt;/&apos; + columnName + &apos;&gt;&apos;;
+    	  if(resultSet.getMetaData().getColumnName(i)==&quot;id&quot;)
+    	  {
+    	  	
+    	  	var id = columnValue;
+    	  	var updqry = &quot;UPDATE patient_data SET update_flag=1 WHERE id=&quot;+id;
+		 updateStatements.push(updqry);
+
+
+    	  //	var updqry=&quot;UPDATE patient_data SET update_flag=? WHERE id=?&quot;; 
+
+
+    // Prepare the SQL statement
+//    preparedStatement = connection.prepareStatement(updqry);
+
+    // Set parameter values for the update statement
+//    preparedStatement.setString(1, 2);
+//    preparedStatement.setString(2, &apos;new_value_for_column2&apos;);
+//    preparedStatement.setInt(1,1);
+//    preparedStatement.setInt(2,id); // Replace 123 with the actual ID of the record to update
+
+    // Execute the update statement
+//    var rowsAffected = preparedStatement.executeUpdate();
+
+    // Log the number of rows affected
+  //  logger.info(&apos;Rows affected: &apos; + rowsAffected);    	  	
+    	  	
+    	  }
+    	  }
+    }
+
+    xmlString += &apos;&lt;/row&gt;&apos;;
+  }
+// Close XML string
+xmlString += &apos;&lt;/data&gt;&apos;;
+// Construct a single SQL statement with multiple update clauses
+
+logger.info(&quot;updst: &quot; + updateStatements);
+if(updateStatements!=&quot;&quot;)
+{
+var r=0;
+	
+try {
+
+  // Iterate over each update statement and execute it
+    for (var i = 0; i &lt; updateStatements.length; i++) {
+        var rowsAffected = statement.executeUpdate(updateStatements[i]);
+      logger.info(&apos;Rows affected for statement &apos; + (i + 1) + &apos;: &apos; + rowsAffected);
+        r++;
+    }
+
+//var sqlStatement = updateStatements.join(&apos; &apos;);
+//logger.info(&quot;sqlStt: &quot; + sqlStatement);
+    // Execute the SQL statement
+   // var rowsAffected = statement.executeUpdate(sqlStatement);
+
+    // Log the number of rows affected
+    logger.info(&apos;Rows affected: &apos; + r);
+// Set the XML string as the message
+}
+catch(e)
+{
+	 logger.error(&apos;Error executing update queries: &apos; + e);
+}
+}
+msg = xmlString;
+
+//logger.info(&quot;msg : &quot; + msg);
+
+try {
+    xmlDocument = new XML(xmlString);
+var jsondata = XmlUtil.toJson(xmlDocument);
+//    logger.info(&quot;js data : &quot; + jsondata);
+    // If parsing successful, XML is valid
+router.routeMessage(&apos;In_xml_PGsql&apos;, xmlDocument);
+   // logger.info(&quot;XML is valid.&quot;);
+} catch (e) {
+    // If parsing fails, XML is not valid
+   // logger.error(&quot;Invalid XML!&quot;);
+}
+
+    
+} catch (e) {
+    // Handle any exceptions
+    logger.error(&apos;Error executing SQL query: &apos; + e);
+} finally {
+    // Close database connection and result set
+    if (resultSet != null) {
+        resultSet.close();
+    }
+    if (connection != null) {
+        connection.close();
+    }
+}
+</script>
+    </properties>
+    <transformer version="4.5.0">
+      <elements/>
+      <inboundTemplate encoding="base64"></inboundTemplate>
+      <outboundTemplate encoding="base64"></outboundTemplate>
+      <inboundDataType>XML</inboundDataType>
+      <outboundDataType>XML</outboundDataType>
+      <inboundProperties class="com.mirth.connect.plugins.datatypes.xml.XMLDataTypeProperties" version="4.5.0">
+        <serializationProperties class="com.mirth.connect.plugins.datatypes.xml.XMLSerializationProperties" version="4.5.0">
+          <stripNamespaces>false</stripNamespaces>
+        </serializationProperties>
+        <batchProperties class="com.mirth.connect.plugins.datatypes.xml.XMLBatchProperties" version="4.5.0">
+          <splitType>Element_Name</splitType>
+          <elementName></elementName>
+          <level>1</level>
+          <query></query>
+          <batchScript></batchScript>
+        </batchProperties>
+      </inboundProperties>
+      <outboundProperties class="com.mirth.connect.plugins.datatypes.xml.XMLDataTypeProperties" version="4.5.0">
+        <serializationProperties class="com.mirth.connect.plugins.datatypes.xml.XMLSerializationProperties" version="4.5.0">
+          <stripNamespaces>false</stripNamespaces>
+        </serializationProperties>
+        <batchProperties class="com.mirth.connect.plugins.datatypes.xml.XMLBatchProperties" version="4.5.0">
+          <splitType>Element_Name</splitType>
+          <elementName></elementName>
+          <level>1</level>
+          <query></query>
+          <batchScript></batchScript>
+        </batchProperties>
+      </outboundProperties>
+    </transformer>
+    <filter version="4.5.0">
+      <elements/>
+    </filter>
+    <transportName>JavaScript Reader</transportName>
+    <mode>SOURCE</mode>
+    <enabled>true</enabled>
+    <waitForPrevious>true</waitForPrevious>
+  </sourceConnector>
+  <destinationConnectors>
+    <connector version="4.5.0">
+      <metaDataId>1</metaDataId>
+      <name>Destination 1</name>
+      <properties class="com.mirth.connect.connectors.vm.VmDispatcherProperties" version="4.5.0">
+        <pluginProperties/>
+        <destinationConnectorProperties version="4.5.0">
+          <queueEnabled>false</queueEnabled>
+          <sendFirst>false</sendFirst>
+          <retryIntervalMillis>10000</retryIntervalMillis>
+          <regenerateTemplate>false</regenerateTemplate>
+          <retryCount>0</retryCount>
+          <rotate>false</rotate>
+          <includeFilterTransformer>false</includeFilterTransformer>
+          <threadCount>1</threadCount>
+          <threadAssignmentVariable></threadAssignmentVariable>
+          <validateResponse>false</validateResponse>
+          <resourceIds class="linked-hash-map">
+            <entry>
+              <string>Default Resource</string>
+              <string>[Default Resource]</string>
+            </entry>
+          </resourceIds>
+          <queueBufferSize>1000</queueBufferSize>
+          <reattachAttachments>true</reattachAttachments>
+        </destinationConnectorProperties>
+        <channelId>none</channelId>
+        <channelTemplate>${message.encodedData}</channelTemplate>
+        <mapVariables/>
+      </properties>
+      <transformer version="4.5.0">
+        <elements/>
+        <inboundDataType>XML</inboundDataType>
+        <outboundDataType>XML</outboundDataType>
+        <inboundProperties class="com.mirth.connect.plugins.datatypes.xml.XMLDataTypeProperties" version="4.5.0">
+          <serializationProperties class="com.mirth.connect.plugins.datatypes.xml.XMLSerializationProperties" version="4.5.0">
+            <stripNamespaces>false</stripNamespaces>
+          </serializationProperties>
+          <batchProperties class="com.mirth.connect.plugins.datatypes.xml.XMLBatchProperties" version="4.5.0">
+            <splitType>Element_Name</splitType>
+            <elementName></elementName>
+            <level>1</level>
+            <query></query>
+            <batchScript></batchScript>
+          </batchProperties>
+        </inboundProperties>
+        <outboundProperties class="com.mirth.connect.plugins.datatypes.xml.XMLDataTypeProperties" version="4.5.0">
+          <serializationProperties class="com.mirth.connect.plugins.datatypes.xml.XMLSerializationProperties" version="4.5.0">
+            <stripNamespaces>false</stripNamespaces>
+          </serializationProperties>
+          <batchProperties class="com.mirth.connect.plugins.datatypes.xml.XMLBatchProperties" version="4.5.0">
+            <splitType>Element_Name</splitType>
+            <elementName></elementName>
+            <level>1</level>
+            <query></query>
+            <batchScript></batchScript>
+          </batchProperties>
+        </outboundProperties>
+      </transformer>
+      <responseTransformer version="4.5.0">
+        <elements/>
+        <inboundDataType>XML</inboundDataType>
+        <outboundDataType>XML</outboundDataType>
+        <inboundProperties class="com.mirth.connect.plugins.datatypes.xml.XMLDataTypeProperties" version="4.5.0">
+          <serializationProperties class="com.mirth.connect.plugins.datatypes.xml.XMLSerializationProperties" version="4.5.0">
+            <stripNamespaces>false</stripNamespaces>
+          </serializationProperties>
+          <batchProperties class="com.mirth.connect.plugins.datatypes.xml.XMLBatchProperties" version="4.5.0">
+            <splitType>Element_Name</splitType>
+            <elementName></elementName>
+            <level>1</level>
+            <query></query>
+            <batchScript></batchScript>
+          </batchProperties>
+        </inboundProperties>
+        <outboundProperties class="com.mirth.connect.plugins.datatypes.xml.XMLDataTypeProperties" version="4.5.0">
+          <serializationProperties class="com.mirth.connect.plugins.datatypes.xml.XMLSerializationProperties" version="4.5.0">
+            <stripNamespaces>false</stripNamespaces>
+          </serializationProperties>
+          <batchProperties class="com.mirth.connect.plugins.datatypes.xml.XMLBatchProperties" version="4.5.0">
+            <splitType>Element_Name</splitType>
+            <elementName></elementName>
+            <level>1</level>
+            <query></query>
+            <batchScript></batchScript>
+          </batchProperties>
+        </outboundProperties>
+      </responseTransformer>
+      <filter version="4.5.0">
+        <elements/>
+      </filter>
+      <transportName>Channel Writer</transportName>
+      <mode>DESTINATION</mode>
+      <enabled>true</enabled>
+      <waitForPrevious>true</waitForPrevious>
+    </connector>
+  </destinationConnectors>
+  <preprocessingScript>// Modify the message variable below to pre process data
+return message;</preprocessingScript>
+  <postprocessingScript>// This script executes once after a message has been processed
+// Responses returned from here will be stored as &quot;Postprocessor&quot; in the response map
+return;</postprocessingScript>
+  <deployScript>// This script executes once when the channel is deployed
+// You only have access to the globalMap and globalChannelMap here to persist data
+return;</deployScript>
+  <undeployScript>// This script executes once when the channel is undeployed
+// You only have access to the globalMap and globalChannelMap here to persist data
+return;</undeployScript>
+  <properties version="4.5.0">
+    <clearGlobalChannelMap>true</clearGlobalChannelMap>
+    <messageStorageMode>DEVELOPMENT</messageStorageMode>
+    <encryptData>false</encryptData>
+    <encryptAttachments>false</encryptAttachments>
+    <encryptCustomMetaData>false</encryptCustomMetaData>
+    <removeContentOnCompletion>false</removeContentOnCompletion>
+    <removeOnlyFilteredOnCompletion>false</removeOnlyFilteredOnCompletion>
+    <removeAttachmentsOnCompletion>false</removeAttachmentsOnCompletion>
+    <initialState>STARTED</initialState>
+    <storeAttachments>true</storeAttachments>
+    <metaDataColumns>
+      <metaDataColumn>
+        <name>SOURCE</name>
+        <type>STRING</type>
+        <mappingName>mirth_source</mappingName>
+      </metaDataColumn>
+      <metaDataColumn>
+        <name>TYPE</name>
+        <type>STRING</type>
+        <mappingName>mirth_type</mappingName>
+      </metaDataColumn>
+    </metaDataColumns>
+    <attachmentProperties version="4.5.0">
+      <type>None</type>
+      <properties/>
+    </attachmentProperties>
+    <resourceIds class="linked-hash-map">
+      <entry>
+        <string>Default Resource</string>
+        <string>[Default Resource]</string>
+      </entry>
+    </resourceIds>
+  </properties>
+  <exportData>
+    <metadata>
+      <enabled>true</enabled>
+      <lastModified>
+        <time>1712049970484</time>
+        <timezone>Asia/Kolkata</timezone>
+      </lastModified>
+      <pruningSettings>
+        <archiveEnabled>true</archiveEnabled>
+        <pruneErroredMessages>false</pruneErroredMessages>
+      </pruningSettings>
+      <userId>1</userId>
+    </metadata>
+  </exportData>
+</channel>
